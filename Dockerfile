@@ -14,7 +14,7 @@ RUN npm ci
 # Copy config and source files then compile TypeScript to JavaScript
 # Output lands in /app/dist
 COPY tsconfig.json ./
-COPY src ./src
+COPY api ./api
 RUN npm run build
 
 # Stage 2 - Production

@@ -1,5 +1,5 @@
 import request from "supertest";
-import app from "../src/app";
+import app from "../api/app";
 
 jest.mock("../src/services/claudeService", () => ({
   transformBookQuery: jest
