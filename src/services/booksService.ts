@@ -24,6 +24,7 @@ export async function searchBooks(query: string): Promise<Book[]> {
       params: {
         q: query,
         maxResults: 10,
+        key: process.env.GOOGLE_BOOKS_API_KEY,
       },
     },
   );
@@ -35,6 +36,11 @@ export async function searchBooks(query: string): Promise<Book[]> {
 export async function getBookById(id: string): Promise<Book> {
   const response = await axios.get<GoogleBookItem>(
     `${GOOGLE_BOOKS_BASE_URL}/volumes/${id}`,
+    {
+      params: {
+        key: process.env.GOOGLE_BOOKS_API_KEY,
+      },
+    },
   );
   return mapBookItem(response.data);
 }
