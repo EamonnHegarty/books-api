@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { transformBookQuery } from "../services/claudeService";
 import { searchBooks, getBookById } from "../services/booksService";
+import logger from "../utils/logger";
 
 const router = Router();
 
@@ -17,8 +18,18 @@ router.post(
         return;
       }
 
+      logger.info("Book search request", { query });
+
       const structuredQuery = await transformBookQuery(query);
+
+      logger.info("Claude structured query", {
+        originalQuery: query,
+        structuredQuery,
+      });
+
       const books = await searchBooks(structuredQuery);
+
+      logger.info("Search complete", { resultCount: books.length });
 
       res.status(200).json({
         originalQuery: query,
