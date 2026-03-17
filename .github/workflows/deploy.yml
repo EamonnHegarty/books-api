@@ -3,8 +3,9 @@ name: Deploy
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+
+permissions:
+  contents: write
 
 env:
   PROJECT_ID: books-api-prod
@@ -13,27 +14,9 @@ env:
   IMAGE: europe-west1-docker.pkg.dev/books-api-prod/books-api/books-api
 
 jobs:
-  test:
-    name: Run tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
-
   deploy:
     name: Build and deploy
-    needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
       - uses: actions/checkout@v4
@@ -83,3 +66,12 @@ jobs:
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }} \
             --quiet
+
+      - name: Tag release
+        if: success()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          TAG="v$(date +'%Y.%m.%d')-$(echo ${{ github.sha }} | cut -c1-7)"
+          git tag $TAG
+          git push origin $TAG

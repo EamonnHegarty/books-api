@@ -1,5 +1,8 @@
 # books-api
 
+![Tests](https://github.com/EamonnHegarty/books-api/actions/workflows/test.yml/badge.svg)
+![Deploy](https://github.com/EamonnHegarty/books-api/actions/workflows/deploy.yml/badge.svg)
+
 A RESTful API built with Node.js and TypeScript. The application itself is intentionally simple — the focus of this project is the infrastructure and DevOps pipeline that surrounds it.
 
 Built to get hands-on experience with Docker, Terraform, GCP, and GitHub Actions CI/CD.
@@ -25,7 +28,7 @@ Takes a natural language book query, uses Claude AI to transform it into an opti
 ### Example request
 
 ```bash
-curl -X POST https://your-cloud-run-url/books/search \
+curl -X POST https://books-api-staging-p6n7bhadia-ew.a.run.app/books/search \
   -H "Content-Type: application/json" \
   -d '{"query": "best books for learning python"}'
 ```
@@ -60,7 +63,7 @@ Deploy to Cloud Run (production)
 
 - **Cloud Run** — serverless container hosting, scales to zero when idle
 - **Artifact Registry** — stores Docker images
-- **Secret Manager** — stores API keys, injected into Cloud Run at runtime
+- **Environment variables** — API keys injected into Cloud Run at deploy time via GitHub secrets
 
 ---
 
@@ -77,6 +80,38 @@ Deploy to Cloud Run (production)
 | Infrastructure   | Terraform                         |
 | Cloud            | GCP Cloud Run + Artifact Registry |
 | CI/CD            | GitHub Actions                    |
+
+---
+
+## Project structure
+
+```
+books-api/
+├── .github/
+│   └── workflows/
+│       ├── test.yml        # Runs on PRs and pushes to main
+│       └── deploy.yml      # Runs on pushes to main only
+├── api/
+│   ├── routes/
+│   │   └── books.ts        # Route handlers
+│   ├── services/
+│   │   ├── claudeService.ts    # Claude API integration
+│   │   └── booksService.ts     # Google Books API integration
+│   ├── types/
+│   │   └── types.ts        # Shared TypeScript types
+│   ├── app.ts              # Express app setup
+│   └── index.ts            # Entry point
+├── terraform/
+│   ├── main.tf             # Cloud Run services and IAM
+│   ├── variables.tf        # Input variables
+│   ├── outputs.tf          # Output values
+│   └── terraform.tfvars    # Local variable values (not committed)
+├── tests/
+│   └── books.test.ts       # Jest + Supertest tests
+├── Dockerfile              # Multi-stage build
+├── tsconfig.json
+└── package.json
+```
 
 ---
 
@@ -103,6 +138,36 @@ docker run -p 3000:3000 --env-file .env books-api
 
 ---
 
+## Infrastructure
+
+Provisioned on GCP via Terraform. Two Cloud Run services are deployed — staging and production — both in `europe-west1`.
+
+```bash
+cd terraform
+terraform init
+terraform plan
+terraform apply
+```
+
+Outputs the staging and production URLs on apply.
+
+---
+
+## CI/CD pipeline
+
+Every push to `main`:
+
+1. Tests run
+2. Docker image is built and pushed to Artifact Registry tagged with the commit SHA
+3. Image is deployed to Cloud Run staging
+4. Smoke test hits `/health` on staging
+5. On pass, image is promoted to Cloud Run production
+6. A release tag is created in the format `vYYYY.MM.DD-<sha>`
+
+Pull requests only run tests — no deployment.
+
+---
+
 ## Environment variables
 
 | Variable               | Description                       |
@@ -110,3 +175,5 @@ docker run -p 3000:3000 --env-file .env books-api
 | `ANTHROPIC_API_KEY`    | Anthropic Console API key         |
 | `GOOGLE_BOOKS_API_KEY` | GCP Books API key                 |
 | `PORT`                 | Port to run on (defaults to 3000) |
+
+In production these are set as GitHub Actions secrets and injected into Cloud Run at deploy time.
