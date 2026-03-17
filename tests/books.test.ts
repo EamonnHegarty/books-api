@@ -1,13 +1,13 @@
 import request from "supertest";
 import app from "../api/app";
 
-jest.mock("../src/services/claudeService", () => ({
+jest.mock("../api/services/claudeService", () => ({
   transformBookQuery: jest
     .fn()
     .mockResolvedValue("intitle:horror space science fiction"),
 }));
 
-jest.mock("../src/services/booksService", () => ({
+jest.mock("../api/services/booksService", () => ({
   searchBooks: jest.fn().mockResolvedValue([
     {
       id: "abc123",
