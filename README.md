@@ -28,7 +28,7 @@ Takes a natural language book query, uses Claude AI to transform it into an opti
 ### Example request
 
 ```bash
-curl -X POST https://books-api-staging-p6n7bhadia-ew.a.run.app/books/search \
+curl -X POST https://books-api-prod-p6n7bhadia-ew.a.run.app/books/search \
   -H "Content-Type: application/json" \
   -d '{"query": "best books for learning python"}'
 ```
@@ -43,7 +43,7 @@ GitHub PR opened
       ▼
 GitHub Actions — run unit tests
       │
-      ▼ (PR merged to main)
+      ▼ (tests pass, PR merged to main)
 GitHub Actions — build Docker image
       │
       ▼
@@ -57,12 +57,15 @@ Smoke test hits /health endpoint
       │
       ▼ (on pass)
 Deploy to Cloud Run (production)
+      │
+      ▼
+Release tag created (vYYYY.MM.DD-<sha>)
 ```
 
 **Infrastructure** is defined in Terraform and provisioned on GCP:
 
 - **Cloud Run** — serverless container hosting, scales to zero when idle
-- **Artifact Registry** — stores Docker images
+- **Artifact Registry** — stores Docker images tagged by commit SHA
 - **Environment variables** — API keys injected into Cloud Run at deploy time via GitHub secrets
 
 ---
@@ -90,7 +93,7 @@ books-api/
 ├── .github/
 │   └── workflows/
 │       ├── test.yml        # Runs on PRs and pushes to main
-│       └── deploy.yml      # Runs on pushes to main only
+│       └── deploy.yml      # Runs after tests pass on main
 ├── api/
 │   ├── routes/
 │   │   └── books.ts        # Route handlers
@@ -99,13 +102,14 @@ books-api/
 │   │   └── booksService.ts     # Google Books API integration
 │   ├── types/
 │   │   └── types.ts        # Shared TypeScript types
+│   ├── utils/
+│   │   └── logger.ts       # Winston structured logger
 │   ├── app.ts              # Express app setup
 │   └── index.ts            # Entry point
 ├── terraform/
 │   ├── main.tf             # Cloud Run services and IAM
 │   ├── variables.tf        # Input variables
-│   ├── outputs.tf          # Output values
-│   └── terraform.tfvars    # Local variable values (not committed)
+│   └── outputs.tf          # Output values
 ├── tests/
 │   └── books.test.ts       # Jest + Supertest tests
 ├── Dockerfile              # Multi-stage build
@@ -158,13 +162,30 @@ Outputs the staging and production URLs on apply.
 Every push to `main`:
 
 1. Tests run
-2. Docker image is built and pushed to Artifact Registry tagged with the commit SHA
-3. Image is deployed to Cloud Run staging
+2. Docker image built and pushed to Artifact Registry tagged with commit SHA
+3. Deployed to Cloud Run staging
 4. Smoke test hits `/health` on staging
-5. On pass, image is promoted to Cloud Run production
-6. A release tag is created in the format `vYYYY.MM.DD-<sha>`
+5. On pass, promoted to Cloud Run production
+6. Release tag created in format `vYYYY.MM.DD-<sha>`
 
 Pull requests only run tests — no deployment.
+
+---
+
+## Observability
+
+**Structured logging** — all requests and errors are logged as JSON to stdout, captured by GCP Cloud Logging. Queryable by field:
+
+```
+jsonPayload.message="Claude structured query"
+jsonPayload.resultCount=0
+```
+
+**Uptime monitoring** — GCP Uptime Checks hit `/health` every minute on both staging and production from multiple regions globally. Email alerts fire on consecutive failures.
+
+![GCP Uptime Checks](docs/uptime.png)
+
+**Rate limiting** — `/books` routes are limited to 50 requests per IP per 15 minutes to prevent abuse and protect API spend limits.
 
 ---
 
